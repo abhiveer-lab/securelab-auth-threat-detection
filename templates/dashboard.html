@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureLab | Security Dashboard</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+
+<body>
+    <div class="dashboard-container">
+
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div>
+                <h1>SecureLab</h1>
+                <p>Security Monitoring Dashboard</p>
+            </div>
+
+            <a href="{{ url_for('logout') }}" class="logout-btn">
+                Logout
+            </a>
+        </header>
+
+        <!-- Summary Cards -->
+        <section class="summary-cards">
+
+            <div class="summary-card">
+                <h3>Total Events</h3>
+                <p>{{ total_events }}</p>
+            </div>
+
+            <div class="summary-card">
+                <h3>Successful Logins</h3>
+                <p>{{ successful_logins }}</p>
+            </div>
+
+            <div class="summary-card">
+                <h3>Failed Logins</h3>
+                <p>{{ failed_logins }}</p>
+            </div>
+
+        </section>
+
+        <!-- Security Alerts -->
+        <section class="panel alerts-panel">
+            <div class="panel-header">
+                <h2>Security Alerts</h2>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>IP Address</th>
+                            <th>Alert Type</th>
+                            <th>Description</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for alert in alerts %}
+                        <tr>
+                            <td>{{ alert[0] }}</td>
+                            <td>{{ alert[1] }}</td>
+                            <td>{{ alert[2] }}</td>
+                            <td class="alert-description">
+                                {{ alert[3] }}
+                            </td>
+                            <td>{{ alert[4] }}</td>
+
+                            <td>
+                                {% if alert[5] == 'NEW' %}
+                                    <span class="status failed">NEW</span>
+                                {% elif alert[5] == 'REVIEWED' %}
+                                    <span class="status success">REVIEWED</span>
+                                {% else %}
+                                    <span class="status">{{ alert[5] }}</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if alert[5] == 'NEW' %}
+                                    <form method="POST"
+                                          action="{{ url_for('review_alert', alert_id=alert[0]) }}">
+                                        <button type="submit" class="review-btn">
+                                            Mark Reviewed
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <span>Completed</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                No security alerts found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Authentication Logs -->
+        <section class="panel logs-panel">
+            <div class="panel-header">
+                <h2>Authentication Logs</h2>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>IP Address</th>
+                            <th>Attempt Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log[0] }}</td>
+                            <td>{{ log[1] }}</td>
+                            <td>{{ log[2] }}</td>
+
+                            <td>
+                                {% if log[3] == 'SUCCESS' %}
+                                    <span class="status success">SUCCESS</span>
+                                {% else %}
+                                    <span class="status failed">FAILED</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-state">
+                                No authentication logs found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <p>SecureLab | Authentication Monitoring &amp; Threat Detection</p>
+        </footer>
+
+    </div>
+</body>
+</html>

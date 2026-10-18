@@ -1,0 +1,228 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-family: "Segoe UI",Roboto,Arial,sans-serif;
+  color: #e8f3ff;
+  background: radial-gradient(ellipse at 50% 55%,#0b4fa8 0%,#082f68 35%,#041534 70%,#020a1c 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* dotted world map (left + right) */
+body::before,body::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  width: 48%;
+  height: 70%;
+  background-image: radial-gradient(circle,#3b8cff 1px,transparent 1.6px);
+  background-size: 8px 8px;
+  opacity: .45;
+  -webkit-mask-image: radial-gradient(ellipse 45% 40% at 40% 35%,#000 60%,transparent 62%),
+                     radial-gradient(ellipse 25% 30% at 55% 75%,#000 60%,transparent 62%);
+  mask-image: radial-gradient(ellipse 45% 40% at 40% 35%,#000 60%,transparent 62%),
+             radial-gradient(ellipse 25% 30% at 55% 75%,#000 60%,transparent 62%);
+}
+
+body::before {
+  left: -6%;
+}
+
+body::after {
+  right: -6%;
+  transform: scaleX(-1);
+}
+
+/* circuit lines */
+.circuit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.circuit polyline {
+  fill: none;
+  stroke: #2f8dff;
+  stroke-width: 1.5;
+  opacity: .7;
+}
+
+.circuit circle {
+  fill: #5cc8ff;
+}
+
+/* card */
+.card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 400px;
+  padding: 34px 30px 26px;
+  border-radius: 18px;
+  border: 1.5px solid rgba(100,180,255,.75);
+  background: linear-gradient(180deg,rgba(22,70,140,.6),rgba(6,24,56,.85));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0 30px rgba(40,140,255,.45),inset 0 0 30px rgba(40,120,255,.15);
+  text-align: center;
+}
+
+.logo {
+  width: 64px;
+  height: 72px;
+  filter: drop-shadow(0 0 8px rgba(80,180,255,.8));
+}
+
+.title {
+  margin-top: 12px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-shadow: 0 0 14px rgba(120,200,255,.7);
+}
+
+.title span {
+  color: #6fd0ff;
+}
+
+.subtitle {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #cfe6ff;
+  margin-bottom: 26px;
+}
+
+/* form */
+form {
+  text-align: left;
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+}
+
+.field {
+  position: relative;
+}
+
+.field input {
+  width: 100%;
+  height: 46px;
+  padding: 0 44px;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(40,90,160,.45);
+  border: 1px solid rgba(130,180,240,.45);
+  border-radius: 8px;
+  outline: none;
+}
+
+.field input::placeholder {
+  color: #cfe2f8;
+}
+
+.field input:focus {
+  border-color: #6fd0ff;
+  box-shadow: 0 0 0 3px rgba(80,180,255,.25);
+}
+
+.field .icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  stroke: #dbeaff;
+  fill: none;
+  stroke-width: 2;
+}
+
+.eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px;
+  line-height: 0;
+}
+
+.eye svg {
+  width: 22px;
+  height: 22px;
+  stroke: #dbeaff;
+  fill: none;
+  stroke-width: 2;
+}
+
+.btn {
+  width: 100%;
+  height: 50px;
+  margin-top: 26px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #06306b;
+  background: linear-gradient(180deg,#e6fbff 0%,#8fe4ff 55%,#3fb8f5 100%);
+  box-shadow: 0 0 22px rgba(90,200,255,.8);
+  transition: transform .1s,box-shadow .2s;
+}
+
+.btn:hover {
+  box-shadow: 0 0 32px rgba(120,220,255,1);
+}
+
+.btn:active {
+  transform: scale(.98);
+}
+
+#msg {
+  min-height: 20px;
+  margin-top: 12px;
+  font-size: 13px;
+  text-align: center;
+}
+
+#msg.err {
+  color: #ff8da1;
+}
+
+#msg.ok {
+  color: #7dffcf;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  font-size: 13px;
+  color: #cfe6ff;
+}
+
+.divider::before,.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(130,180,240,.4);
+}
