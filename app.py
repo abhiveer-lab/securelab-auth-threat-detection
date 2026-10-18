@@ -135,62 +135,57 @@ def detect_brute_force(ip_address):
 @app.route('/login', methods=['POST'])
 @app.route('/')
 def login():
+    if request.method == 'GET':
+        return render_template('index.html')
+
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
     error = None
-    if request.method == "POST":
-        username = request.form.get('username' , '').strip()
-        password = request.form.get('password', '')
 
-        if not username or not password:
-            error = 'Please enter both username and password'
-        else:
-            con = sqlite3.connect('securelab.db')
-            cur = con.cursor()
+    if not username or not password:
+        error = 'Please enter both username and password'
+        return render_template('index.html', error=error)
 
-            cur.execute(
-                "SELECT password_hash, role FROM users WHERE username = ?",
-                (username,)
-            )
+    ip_address = request.remote_addr
 
-            user = cur.fetchone()
-            con.close()
+    if is_ip_blocked(ip_address):
+        error = 'Too many failed login attempts. Try again in 5 minutes.'
+        return render_template('index.html', error=error)
 
-            ip_address = request.remote_addr
+    con = sqlite3.connect('securelab.db')
+    cur = con.cursor()
 
-            if is_ip_blocked(ip_address):
-                error = 'Too many failed login attempts. Try again in 5 minutes. '
-                return render_template('index.html', error=error)
+    cur.execute(
+        "SELECT password_hash, role FROM users WHERE username = ?",
+        (username,)
+    )
 
-            if user is None:
-                log_attempt(username, ip_address, 'FAILED')
-                failed_attempts = detect_brute_force(ip_address)
+    user = cur.fetchone()
+    con.close()
 
-                if failed_attempts >= 5:
-                    block_ip(ip_address)
-                    error = 'Too many failed login attempts. try again in 5 minutes.'
-                else:
-                    error = 'Invalid username or password'
+    if user is not None and check_password_hash(user[0], password):
+        log_attempt(username, ip_address, 'SUCCESS')
 
-            elif check_password_hash(user[0], password):
-                log_attempt(username, ip_address, 'SUCCESS')
-                session['username'] = username
-                session['role'] = user[1]
+        session['username'] = username
+        session['role'] = user[1]
 
-                if user[1] == 'admin':
-                    return redirect(url_for('dashboard'))
+        if user[1] == 'admin':
+            return redirect(url_for('dashboard'))
 
+        return 'Login successful'
 
-                return 'Login successful'
+    log_attempt(username, ip_address, 'FAILED')
 
-            else :
-               log_attempt(username, ip_address, 'FAILED')
-               failed_attempts = detect_brute_force(ip_address)
+    failed_attempts = detect_brute_force(ip_address)
 
-               if failed_attempts >= 5:
-                   block_ip(ip_address)
-                   error = 'Too many failed login attempts. Try again in 5 minutes.'
-               else:
-                   error = 'Invalid username or password'
-            return render_template('index.html', error=error)
+    if failed_attempts >= 5:
+        block_ip(ip_address)
+        error = 'Too many failed login attempts. Try again in 5 minutes.'
+    else:
+        error = 'Invalid username or password'
+
+    return render_template('index.html', error=error)
+
 
 @app.route('/dashboard')
 def dashboard():
@@ -229,6 +224,13 @@ def dashboard():
     alerts = cur.fetchall()
 
     cur.execute(
+        """SELECT ip_address, blocked_until, reason FROM  blocked_ips
+        ORDER BY blocked_until DESC"""
+    )
+
+    blocked_ips = cur.fetchall()
+
+    cur.execute(
         """SELECT
                 COUNT(*) AS total,
                 SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END),
@@ -243,13 +245,17 @@ def dashboard():
     successful_logins = stats[1] or 0
     failed_logins = stats[2] or 0
 
+    current_time = datetime.now(timezone.utc).isoformat()
+
     return render_template(
         'dashboard.html',
         logs=logs,
         total_events=total_events,
         successful_logins=successful_logins,
         failed_logins=failed_logins,
-        alerts=alerts
+        alerts=alerts,
+        blocked_ips=blocked_ips,
+        current_time=current_time
     )
 
 @app.route('/alerts/<int:alert_id>/review', methods=['POST'])
@@ -290,6 +296,35 @@ def review_alert(alert_id):
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+@app.route('/unblock/<ip_address>', methods=['POST'])
+def unblock_ip(ip_address):
+    if 'username' not in session:
+        return 'Access denied', 403
+
+    con = sqlite3.connect('securelab.db')
+    cur = con.cursor()
+
+    cur.execute(
+        "SELECT role FROM users WHERE username = ?",
+        (session['username'],)
+    )
+
+    user = cur.fetchone()
+
+    if user is None or user[0] != 'admin':
+        con.close()
+        return 'Access denied', 403
+
+    cur.execute(
+        "DELETE FROM blocked_ips WHERE ip_address= ?",
+        (ip_address, )
+    )
+
+    con.commit()
+    con.close()
+
+    return redirect(url_for('dashboard'))
 
 if __name__ == "__main__":
     app.run(debug=True)
