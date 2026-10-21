@@ -13,6 +13,13 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key =os.environ["FLASK_SECRET_KEY"]
 
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+app.config["SESSION_COOKIE_SECURE"] = False
+
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
+
 def is_ip_blocked(ip_address):
     con = sqlite3.connect('securelab.db')
     cur = con.cursor()
@@ -166,6 +173,8 @@ def login():
     if user is not None and check_password_hash(user[0], password):
         log_attempt(username, ip_address, 'SUCCESS')
 
+        session.clear()
+        session.permanent = True
         session['username'] = username
         session['role'] = user[1]
 
