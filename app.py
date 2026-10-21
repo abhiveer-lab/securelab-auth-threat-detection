@@ -7,6 +7,7 @@ from flask import session,redirect,url_for
 from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
+from flask_wtf.csrf import CSRFProtect
 
 load_dotenv()
 
@@ -19,6 +20,8 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = False
 
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
+
+csrf = CSRFProtect(app)
 
 def is_ip_blocked(ip_address):
     con = sqlite3.connect('securelab.db')
@@ -301,7 +304,7 @@ def review_alert(alert_id):
 
     return redirect(url_for('dashboard'))
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
     session.clear()
     return redirect(url_for('login'))

@@ -20,9 +20,11 @@
                 <p>Security Monitoring Dashboard</p>
             </div>
 
-            <a href="{{ url_for('logout') }}" class="logout-btn">
-                Logout
-            </a>
+            <!-- CSRF-protected logout -->
+            <form action="{{ url_for('logout') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
         </header>
 
         <!-- Summary Cards -->
@@ -90,6 +92,7 @@
                                 {% if alert[5] == 'NEW' %}
                                     <form method="POST"
                                           action="{{ url_for('review_alert', alert_id=alert[0]) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="review-btn">
                                             Mark Reviewed
                                         </button>
@@ -148,6 +151,7 @@
                                 {% if blocked_ip[1] > current_time %}
                                     <form method="POST"
                                           action="{{ url_for('unblock_ip', ip_address=blocked_ip[0]) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="review-btn">
                                             Unblock
                                         </button>
