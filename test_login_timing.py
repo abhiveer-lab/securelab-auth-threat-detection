@@ -90,9 +90,19 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 environ_overrides={"REMOTE_ADDR": "192.0.2.11"}
             )
 
+            missing_credentials = client.post(
+                "/login",
+                data={"username": "", "password": ""},
+                environ_overrides={"REMOTE_ADDR": "192.0.2.12"}
+            )
+
             print("Existing username + wrong password:", wrong_password.status_code)
             print("Unknown username:", unknown_user.status_code)
             print("Both rejected:", wrong_password.status_code == 200 and unknown_user.status_code == 200)
+            print(
+                "Missing credentials use generic error:",
+                b"Invalid username or password" in missing_credentials.data
+            )
 
     finally:
         sqlite3.connect = original_connect

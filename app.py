@@ -155,7 +155,7 @@ def login():
     error = None
 
     if not username or not password:
-        error = 'Please enter both username and password'
+        error = 'Invalid username or password'
         return render_template('index.html', error=error)
 
     ip_address = request.remote_addr
