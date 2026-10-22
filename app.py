@@ -23,6 +23,8 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
 
 csrf = CSRFProtect(app)
 
+DUMMY_PASSWORD_HASH = "scrypt:32768:8:1$hYL8oJJUi7cplDXn$9b6b1b0a3723ef69969bc1bdb769ea5d0ddb73f6346714b7fe0f6a4a4ef90a758c4d6023edd897b120ea45425210036db74b9cc017b3e0e1844fb22445037e78"
+
 def is_ip_blocked(ip_address):
     con = sqlite3.connect('securelab.db')
     cur = con.cursor()
@@ -173,7 +175,10 @@ def login():
     user = cur.fetchone()
     con.close()
 
-    if user is not None and check_password_hash(user[0], password):
+    password_hash = user[0] if user is not None else DUMMY_PASSWORD_HASH
+    password_valid = check_password_hash(password_hash, password)
+
+    if user is not None and password_valid:
         log_attempt(username, ip_address, 'SUCCESS')
 
         session.clear()
