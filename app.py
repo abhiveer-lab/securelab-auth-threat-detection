@@ -144,6 +144,67 @@ def detect_brute_force(ip_address):
 
     return failed_attempts
 
+
+def detect_password_spraying(ip_address):
+    con = sqlite3.connect('securelab.db')
+    cur = con.cursor()
+
+    cutoff_time = (
+        datetime.now(timezone.utc) - timedelta(minutes=10)
+    ).isoformat()
+
+    cur.execute(
+        """
+        SELECT COUNT(*), COUNT(DISTINCT username)
+        FROM auth_logs
+        WHERE ip_address = ?
+          AND status = 'FAILED'
+          AND attempt_time >= ?
+        """,
+        (ip_address, cutoff_time)
+    )
+
+    row = cur.fetchone()
+
+    if row is None:
+        failed_attempts = 0
+        distinct_usernames = 0
+    else:
+        failed_attempts, distinct_usernames = row
+
+    if failed_attempts >= 5 and distinct_usernames >= 5:
+        cur.execute(
+            """
+            SELECT id FROM alerts
+            WHERE ip_address = ?
+              AND alert_type = 'PASSWORD_SPRAYING'
+              AND alert_time >= ?
+            """,
+            (ip_address, cutoff_time)
+        )
+
+        if cur.fetchone() is None:
+            cur.execute(
+                """
+                INSERT INTO alerts
+                    (ip_address, alert_type, description, alert_time, status)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    ip_address,
+                    'PASSWORD_SPRAYING',
+                    'Failed login attempts against five or more usernames within 10 minutes',
+                    datetime.now(timezone.utc).isoformat(),
+                    'NEW'
+                )
+            )
+
+    con.commit()
+    con.close()
+
+    return failed_attempts, distinct_usernames
+
+
 @app.route('/login', methods=['POST'])
 @app.route('/')
 def login():

@@ -3,9 +3,8 @@ import os
 import sqlite3
 import tempfile
 from datetime import datetime, timezone, timedelta
-
 from werkzeug.security import generate_password_hash
-from app import app, detect_brute_force, is_ip_blocked
+from app import app, detect_brute_force, is_ip_blocked, detect_password_spraying
 
 
 def setup_test_db(db_path):
@@ -271,6 +270,96 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 cur.fetchone()[0] == 0,
             )
             con.close()
+
+            # 12. Test password-spraying detection.
+            spray_ip = "192.0.2.60"
+            spray_time = datetime.now(timezone.utc).isoformat()
+
+            con = original_connect(db_path)
+            cur = con.cursor()
+
+            # Five different usernames, all failing from one IP.
+            for username in [
+                "alice",
+                "bob",
+                "charlie",
+                "david",
+                "eve",
+            ]:
+                cur.execute(
+                    """
+                    INSERT INTO auth_logs
+                        (username, ip_address, attempt_time, status)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (username, spray_ip, spray_time, "FAILED"),
+                )
+
+            con.commit()
+            con.close()
+
+            # Run detection and check that an alert was created.
+            attempts, usernames = detect_password_spraying(spray_ip)
+
+            con = original_connect(db_path)
+            cur = con.cursor()
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM alerts
+                WHERE ip_address = ?
+                  AND alert_type = 'PASSWORD_SPRAYING'
+                """,
+                (spray_ip,),
+            )
+            spray_alert_count = cur.fetchone()[0]
+            con.close()
+
+            print("Spraying failed attempts:", attempts == 5)
+            print("Distinct usernames detected:", usernames == 5)
+            print("Password-spraying alert created:", spray_alert_count == 1)
+
+            # 13. Test that repeated failures against one username
+            # do not trigger a password-spraying alert.
+            repeat_ip = "192.0.2.61"
+
+            con = original_connect(db_path)
+            cur = con.cursor()
+
+            for _ in range(5):
+                cur.execute(
+                    """
+                    INSERT INTO auth_logs
+                        (username, ip_address, attempt_time, status)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("alice", repeat_ip, spray_time, "FAILED"),
+                )
+
+            con.commit()
+            con.close()
+
+            attempts, usernames = detect_password_spraying(repeat_ip)
+
+            con = original_connect(db_path)
+            cur = con.cursor()
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM alerts
+                WHERE ip_address = ?
+                  AND alert_type = 'PASSWORD_SPRAYING'
+                """,
+                (repeat_ip,),
+            )
+            repeat_alert_count = cur.fetchone()[0]
+            con.close()
+
+            print("Repeated-user attempts detected:", attempts == 5)
+            print("Repeated-user distinct count:", usernames == 1)
+            print(
+                "No spraying alert for repeated username:",
+                repeat_alert_count == 0,
+            )
+
 
     finally:
         sqlite3.connect = original_connect
