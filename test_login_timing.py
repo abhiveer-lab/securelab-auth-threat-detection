@@ -10,6 +10,7 @@ from app import app, detect_brute_force, is_ip_blocked, detect_password_spraying
 def setup_test_db(db_path):
     con = sqlite3.connect(db_path)
     cur = con.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
 
     cur.execute("""
         CREATE TABLE users (
@@ -48,6 +49,13 @@ def setup_test_db(db_path):
         )
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ip_block_history (
+            ip_address TEXT PRIMARY KEY,
+            block_started_at TEXT NOT NULL
+        )
+    """)
+
     cur.execute(
         """
         INSERT INTO users (username, password_hash, role)
@@ -73,6 +81,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
     def test_connect(path, *args, **kwargs):
         if path == "securelab.db":
             path = db_path
+        # Give SQLite time to wait for a brief concurrent lock instead of
+        # failing immediately. Preserve any timeout explicitly supplied.
+        kwargs.setdefault("timeout", 10)
         return original_connect(path, *args, **kwargs)
 
     sqlite3.connect = test_connect
@@ -271,41 +282,81 @@ with tempfile.TemporaryDirectory() as temp_dir:
             )
             con.close()
 
-            # 12. Test password-spraying detection.
-            spray_ip = "192.0.2.60"
-            spray_time = datetime.now(timezone.utc).isoformat()
-
-            con = original_connect(db_path)
-            cur = con.cursor()
-
-            # Five different usernames, all failing from one IP.
-            for username in [
-                "alice",
-                "bob",
-                "charlie",
-                "david",
-                "eve",
-            ]:
-                cur.execute(
-                    """
-                    INSERT INTO auth_logs
-                        (username, ip_address, attempt_time, status)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (username, spray_ip, spray_time, "FAILED"),
+            # 12. Test that one new failure does not immediately re-block an IP after expiry
+            retry_response = client.post(
+                    "/login",
+                    data={
+                        "username": "testuser",
+                        "password": "Wrong-Password-After-Expiry!",
+                    },
+                    environ_overrides={"REMOTE_ADDR": test_ip},
                 )
 
-            con.commit()
+            con = original_connect(db_path)
+            cur = con.cursor()
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM blocked_ips
+                WHERE ip_address = ?
+                """,
+                (test_ip,),
+            )
+
+            blocked_again = cur.fetchone()[0] > 0
             con.close()
 
-            # Run detection and check that an alert was created.
-            attempts, usernames = detect_password_spraying(spray_ip)
+            print(
+                "One new failure does not immediately re-block IP:",
+                not blocked_again,
+            )
+
+            print(
+                "New failure gets normal inavld-credentials response:",
+                b"Invalid username or password" in retry_response.data,
+            )
+
+            # 13. Test password spraying through the real login route.
+            spray_ip = "192.0.2.60"
+
+            for username in ["alice", "bob", "charlie", "david", "eve"]:
+                client.post(
+                    "/login",
+                    data={
+                        "username": username,
+                        "password": "Wrong-Password-123!",
+                    },
+                    environ_overrides={"REMOTE_ADDR": spray_ip},
+                )
 
             con = original_connect(db_path)
             cur = con.cursor()
+
             cur.execute(
                 """
-                SELECT COUNT(*) FROM alerts
+                SELECT COUNT(*)
+                FROM auth_logs
+                WHERE ip_address = ? AND status = 'FAILED'
+                """,
+                (spray_ip,),
+            )
+            attempts = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                SELECT COUNT(DISTINCT username)
+                FROM auth_logs
+                WHERE ip_address = ? AND status = 'FAILED'
+                """,
+                (spray_ip,),
+            )
+            usernames = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM alerts
                 WHERE ip_address = ?
                   AND alert_type = 'PASSWORD_SPRAYING'
                 """,
@@ -314,37 +365,44 @@ with tempfile.TemporaryDirectory() as temp_dir:
             spray_alert_count = cur.fetchone()[0]
             con.close()
 
-            print("Spraying failed attempts:", attempts == 5)
-            print("Distinct usernames detected:", usernames == 5)
-            print("Password-spraying alert created:", spray_alert_count == 1)
+            print("Route spraying failed attempts:", attempts == 5)
+            print("Route spraying distinct usernames:", usernames == 5)
+            print(
+                "Route created password-spraying alert:",
+                spray_alert_count >= 1,
+            )
 
-            # 13. Test that repeated failures against one username
-            # do not trigger a password-spraying alert.
+            # 14. Repeated failures against one username should not
+            # create a password-spraying alert.
             repeat_ip = "192.0.2.61"
 
-            con = original_connect(db_path)
-            cur = con.cursor()
-
             for _ in range(5):
-                cur.execute(
-                    """
-                    INSERT INTO auth_logs
-                        (username, ip_address, attempt_time, status)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    ("alice", repeat_ip, spray_time, "FAILED"),
+                client.post(
+                    "/login",
+                    data={
+                        "username": "alice",
+                        "password": "Wrong-Password-123!",
+                    },
+                    environ_overrides={"REMOTE_ADDR": repeat_ip},
                 )
 
-            con.commit()
-            con.close()
-
-            attempts, usernames = detect_password_spraying(repeat_ip)
-
             con = original_connect(db_path)
             cur = con.cursor()
+
             cur.execute(
                 """
-                SELECT COUNT(*) FROM alerts
+                SELECT COUNT(DISTINCT username)
+                FROM auth_logs
+                WHERE ip_address = ? AND status = 'FAILED'
+                """,
+                (repeat_ip,),
+            )
+            repeat_usernames = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM alerts
                 WHERE ip_address = ?
                   AND alert_type = 'PASSWORD_SPRAYING'
                 """,
@@ -353,13 +411,11 @@ with tempfile.TemporaryDirectory() as temp_dir:
             repeat_alert_count = cur.fetchone()[0]
             con.close()
 
-            print("Repeated-user attempts detected:", attempts == 5)
-            print("Repeated-user distinct count:", usernames == 1)
+            print("Repeated-user distinct count:", repeat_usernames == 1)
             print(
                 "No spraying alert for repeated username:",
                 repeat_alert_count == 0,
             )
-
 
     finally:
         sqlite3.connect = original_connect

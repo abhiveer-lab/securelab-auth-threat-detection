@@ -59,9 +59,9 @@ def is_ip_blocked(ip_address):
     return False
 
 def block_ip(ip_address):
-    blocked_until = (
-        datetime.now(timezone.utc) + timedelta(minutes=5)
-    ).isoformat()
+    now = datetime.now(timezone.utc)
+    block_started_at = now.isoformat()
+    blocked_until = (now + timedelta(minutes=5)).isoformat()
 
     con = sqlite3.connect('securelab.db')
     cur = con.cursor()
@@ -74,7 +74,16 @@ def block_ip(ip_address):
             ip_address,
             blocked_until,
             'Five failed login attempts within 10 minutes'
-        )
+        ),
+    )
+
+    cur.execute(
+        """
+        INSERT OR REPLACE INTO ip_block_history
+            (ip_address, block_started_at)
+        VALUES (?, ?)
+        ON CONFLICT(ip_address) DO UPDATE SET block_started_at = excluded.block_started_at """,
+        (ip_address, block_started_at),
     )
 
     con.commit()
@@ -100,18 +109,41 @@ def detect_brute_force(ip_address):
     con = sqlite3.connect('securelab.db')
     cur = con.cursor()
 
-    cutoff_time = (
-            datetime.now(timezone.utc) - timedelta(minutes=10)
-        ).isoformat()
+    now = datetime.now(timezone.utc)
+    cutoff_time = (now - timedelta(minutes=10)).isoformat()
+
     cur.execute(
-        """SELECT COUNT(*)
-           FROM auth_logs
-           WHERE ip_address = ?
-             AND status = 'FAILED'
-             AND attempt_time >= ?
-             """,
-             (ip_address, cutoff_time)
+        """
+        SELECT block_started_at FROM ip_block_history WHERE ip_Address = ?
+        """,
+        (ip_address, ),
     )
+
+    block_row = cur.fetchone()
+
+    if block_row is not None:
+        cur.execute(
+            """SELECT COUNT(*)
+            FROM auth_logs
+            WHERE ip_address = ?
+                AND status = 'FAILED'
+                AND attempt_time >= ?
+                AND attempt_time > ?
+                """,
+                (ip_address, cutoff_time, block_row[0]),
+        )
+
+    else:
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM auth_logs
+            WHERE ip_address = ?
+              AND status = 'FAILED'
+              AND attempt_time >= ?
+            """,
+            (ip_address, cutoff_time),
+        )
 
     failed_attempts = cur.fetchone()[0]
 
@@ -204,9 +236,8 @@ def detect_password_spraying(ip_address):
 
     return failed_attempts, distinct_usernames
 
-
-@app.route('/login', methods=['POST'])
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('index.html')
@@ -255,7 +286,7 @@ def login():
     log_attempt(username, ip_address, 'FAILED')
 
     failed_attempts = detect_brute_force(ip_address)
-
+    detect_password_spraying(ip_address)
     if failed_attempts >= 5:
         block_ip(ip_address)
         error = 'Too many failed login attempts. Try again in 5 minutes.'

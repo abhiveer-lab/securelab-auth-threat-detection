@@ -21,8 +21,15 @@ cur.execute("""
     )
 """)
 
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS ip_block_history (
+        ip_address TEXT PRIMARY KEY,
+        block_started_at TEXT NOT NULL
+    )
+""")
+
 con.commit()
 con.close()
 
 print("Database tables checked successfully")
-print("Rate-limiting table is ready")
+print("Rate-limiting and block-history tables are ready")
