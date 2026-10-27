@@ -7,35 +7,33 @@
 body {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  font-family: "Segoe UI",Roboto,Arial,sans-serif;
+  padding: 24px 20px;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
   color: #e8f3ff;
-  background: radial-gradient(ellipse at 50% 55%,#0b4fa8 0%,#082f68 35%,#041534 70%,#020a1c 100%);
+  background: radial-gradient(ellipse at 50% 55%, #0b4fa8 0%, #082f68 35%, #041534 70%, #020a1c 100%);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 /* dotted world map (left + right) */
-body::before,body::after {
+body::before,
+body::after {
   content: "";
   position: absolute;
   top: 12%;
   width: 48%;
   height: 70%;
-  background-image: radial-gradient(circle,#3b8cff 1px,transparent 1.6px);
+  pointer-events: none;
+  background-image: radial-gradient(circle, #3b8cff 1px, transparent 1.6px);
   background-size: 8px 8px;
   opacity: .45;
-  -webkit-mask-image: radial-gradient(ellipse 45% 40% at 40% 35%,#000 60%,transparent 62%),
-                     radial-gradient(ellipse 25% 30% at 55% 75%,#000 60%,transparent 62%);
-  mask-image: radial-gradient(ellipse 45% 40% at 40% 35%,#000 60%,transparent 62%),
-             radial-gradient(ellipse 25% 30% at 55% 75%,#000 60%,transparent 62%);
+  -webkit-mask-image: radial-gradient(ellipse 45% 40% at 40% 35%, #000 60%, transparent 62%),
+                      radial-gradient(ellipse 25% 30% at 55% 75%, #000 60%, transparent 62%);
+  mask-image: radial-gradient(ellipse 45% 40% at 40% 35%, #000 60%, transparent 62%),
+             radial-gradient(ellipse 25% 30% at 55% 75%, #000 60%, transparent 62%);
 }
 
-body::before {
-  left: -6%;
-}
+body::before { left: -6%; }
 
 body::after {
   right: -6%;
@@ -58,30 +56,29 @@ body::after {
   opacity: .7;
 }
 
-.circuit circle {
-  fill: #5cc8ff;
-}
+.circuit circle { fill: #5cc8ff; }
 
-/* card */
+/* card (margin:auto centers it and still lets short screens scroll) */
 .card {
   position: relative;
   z-index: 2;
   width: 100%;
   max-width: 400px;
+  margin: auto;
   padding: 34px 30px 26px;
   border-radius: 18px;
-  border: 1.5px solid rgba(100,180,255,.75);
-  background: linear-gradient(180deg,rgba(22,70,140,.6),rgba(6,24,56,.85));
+  border: 1.5px solid rgba(100, 180, 255, .75);
+  background: linear-gradient(180deg, rgba(22, 70, 140, .6), rgba(6, 24, 56, .85));
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  box-shadow: 0 0 30px rgba(40,140,255,.45),inset 0 0 30px rgba(40,120,255,.15);
+  box-shadow: 0 0 30px rgba(40, 140, 255, .45), inset 0 0 30px rgba(40, 120, 255, .15);
   text-align: center;
 }
 
 .logo {
   width: 64px;
   height: 72px;
-  filter: drop-shadow(0 0 8px rgba(80,180,255,.8));
+  filter: drop-shadow(0 0 8px rgba(80, 180, 255, .8));
 }
 
 .title {
@@ -89,24 +86,19 @@ body::after {
   font-size: 32px;
   font-weight: 800;
   letter-spacing: 2px;
-  text-shadow: 0 0 14px rgba(120,200,255,.7);
+  text-shadow: 0 0 14px rgba(120, 200, 255, .7);
 }
 
-.title span {
-  color: #6fd0ff;
-}
+.title span { color: #6fd0ff; }
 
 .subtitle {
-  margin-top: 6px;
+  margin: 6px 0 26px;
   font-size: 14px;
   color: #cfe6ff;
-  margin-bottom: 26px;
 }
 
 /* form */
-form {
-  text-align: left;
-}
+form { text-align: left; }
 
 label {
   display: block;
@@ -115,9 +107,7 @@ label {
   margin: 16px 0 8px;
 }
 
-.field {
-  position: relative;
-}
+.field { position: relative; }
 
 .field input {
   width: 100%;
@@ -125,19 +115,25 @@ label {
   padding: 0 44px;
   font-size: 14px;
   color: #fff;
-  background: rgba(40,90,160,.45);
-  border: 1px solid rgba(130,180,240,.45);
+  background: rgba(40, 90, 160, .45);
+  border: 1px solid rgba(130, 180, 240, .45);
   border-radius: 8px;
   outline: none;
+  transition: border-color .15s, box-shadow .15s;
 }
 
-.field input::placeholder {
-  color: #cfe2f8;
-}
+.field input::placeholder { color: #cfe2f8; }
 
 .field input:focus {
   border-color: #6fd0ff;
-  box-shadow: 0 0 0 3px rgba(80,180,255,.25);
+  box-shadow: 0 0 0 3px rgba(80, 180, 255, .25);
+}
+
+/* keep browser autofill from turning the field white */
+.field input:-webkit-autofill {
+  -webkit-text-fill-color: #fff;
+  box-shadow: 0 0 0 100px #12396f inset;
+  caret-color: #fff;
 }
 
 .field .icon {
@@ -150,6 +146,7 @@ label {
   stroke: #dbeaff;
   fill: none;
   stroke-width: 2;
+  pointer-events: none;
 }
 
 .eye {
@@ -159,6 +156,7 @@ label {
   transform: translateY(-50%);
   background: none;
   border: 0;
+  border-radius: 6px;
   cursor: pointer;
   padding: 6px;
   line-height: 0;
@@ -172,6 +170,8 @@ label {
   stroke-width: 2;
 }
 
+.eye:hover svg { stroke: #6fd0ff; }
+
 .btn {
   width: 100%;
   height: 50px;
@@ -183,33 +183,36 @@ label {
   font-weight: 800;
   letter-spacing: 2px;
   color: #06306b;
-  background: linear-gradient(180deg,#e6fbff 0%,#8fe4ff 55%,#3fb8f5 100%);
-  box-shadow: 0 0 22px rgba(90,200,255,.8);
-  transition: transform .1s,box-shadow .2s;
+  background: linear-gradient(180deg, #e6fbff 0%, #8fe4ff 55%, #3fb8f5 100%);
+  box-shadow: 0 0 22px rgba(90, 200, 255, .8);
+  transition: transform .1s, box-shadow .2s;
 }
 
-.btn:hover {
-  box-shadow: 0 0 32px rgba(120,220,255,1);
+.btn:hover { box-shadow: 0 0 32px rgba(120, 220, 255, 1); }
+.btn:active { transform: scale(.98); }
+
+.btn:focus-visible,
+.eye:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
 }
 
-.btn:active {
-  transform: scale(.98);
-}
-
+/* message area: only shows a box when there is an error */
 #msg {
-  min-height: 20px;
   margin-top: 12px;
   font-size: 13px;
   text-align: center;
 }
 
 #msg.err {
-  color: #ff8da1;
+  padding: 9px 12px;
+  color: #ffb3c1;
+  background: rgba(255, 80, 110, .12);
+  border: 1px solid rgba(255, 141, 161, .45);
+  border-radius: 8px;
 }
 
-#msg.ok {
-  color: #7dffcf;
-}
+#msg.ok { color: #7dffcf; }
 
 .divider {
   display: flex;
@@ -220,9 +223,21 @@ label {
   color: #cfe6ff;
 }
 
-.divider::before,.divider::after {
+.divider::before,
+.divider::after {
   content: "";
   flex: 1;
   height: 1px;
-  background: rgba(130,180,240,.4);
+  background: rgba(130, 180, 240, .4);
+}
+
+.notice {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #9fc0e6;
+}
+
+@media (max-width: 420px) {
+  .card { padding: 28px 20px 22px; }
+  .title { font-size: 28px; }
 }

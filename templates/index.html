@@ -4,15 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SecureLab - Authentication Portal</title>
-
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
-<!-- ============ HTML ============ -->
 <body>
 
-<!-- circuit lines in background -->
-<svg class="circuit" viewBox="0 0 1000 600" preserveAspectRatio="none">
+<!-- circuit lines in background (decoration only) -->
+<svg class="circuit" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
   <polyline points="0,300 90,300 150,360 260,360"/>
   <polyline points="0,350 70,350 130,410 240,410"/>
   <polyline points="1000,250 900,250 840,320 760,320"/>
@@ -23,7 +21,7 @@
 
 <main class="card">
   <!-- shield + lock logo -->
-  <svg class="logo" viewBox="0 0 64 72" fill="none" stroke="#6fd0ff" stroke-width="3" stroke-linejoin="round">
+  <svg class="logo" viewBox="0 0 64 72" fill="none" stroke="#6fd0ff" stroke-width="3" stroke-linejoin="round" aria-hidden="true">
     <path d="M32 4 L58 14 V36 C58 52 46 63 32 68 C18 63 6 52 6 36 V14 Z"/>
     <path d="M32 11 L52 18 V36 C52 48 43 57 32 61 C21 57 12 48 12 36 V18 Z" stroke-width="1.5" opacity=".6"/>
     <rect x="22" y="32" width="20" height="16" rx="3" fill="#fff" stroke="none"/>
@@ -36,30 +34,38 @@
 
   <form id="loginForm" action="/login" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <label for="user">Username</label>
     <div class="field">
-      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
-      <input id="user" type="text" name="username" placeholder="Enter username" autocomplete="username">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+      <input id="user" type="text" name="username" placeholder="Enter username" autocomplete="username" required>
     </div>
 
     <label for="pass">Password</label>
     <div class="field">
-      <svg class="icon" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-      <input id="pass" type="password" name="password" placeholder="Enter password" autocomplete="current-password">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      <input id="pass" type="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
       <button class="eye" type="button" id="eye" aria-label="Show password">
-        <svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
     </div>
 
     <button class="btn" type="submit">LOGIN</button>
-    <div id="msg" role="status">
-        {% if error %}
-            {{ error }}
-        {% endif %}
-    </div>
+    <div id="msg" class="{{ 'err' if error else '' }}" role="status">{% if error %}{{ error }}{% endif %}</div>
   </form>
 
   <div class="divider">Security Research Lab</div>
+  <p class="notice">Authorized use only. Login attempts are logged and monitored.</p>
 </main>
+
+<script>
+  const pass = document.getElementById('pass');
+  const eye = document.getElementById('eye');
+  eye.addEventListener('click', () => {
+    const show = pass.type === 'password';
+    pass.type = show ? 'text' : 'password';
+    eye.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  });
+</script>
 </body>
 </html>

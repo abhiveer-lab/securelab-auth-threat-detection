@@ -322,59 +322,92 @@ def dashboard():
         return 'Access denied', 403
 
     username = session['username']
-
     con = sqlite3.connect('securelab.db')
-    cur = con.cursor()
 
-    cur.execute(
-        "SELECT role FROM users WHERE username = ?",
-        (username, )
-    )
+    try:
+        cur = con.cursor()
 
-    user = cur.fetchone()
-    con.close()
+        cur.execute(
+            "SELECT role FROM users WHERE username = ?",
+            (username, )
+        )
+        user = cur.fetchone()
 
-    if user is None or user[0] != 'admin':
-        return 'Access denied', 403
+        if user is None or user[0] != 'admin':
+            return 'Access denied', 403
 
-    con = sqlite3.connect('securelab.db')
-    cur = con.cursor()
+        current_time = datetime.now(timezone.utc).isoformat()
 
-    cur.execute(
-        """SELECT username, ip_address, attempt_time,status FROM auth_logs ORDER BY id DESC"""
-    )
-    logs = cur.fetchall()
+        cur.execute(
+            """SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END)
+                FROM auth_logs"""
+        )
 
-    cur.execute(
-        """SELECT id, ip_address, alert_type, description, alert_time, status FROM alerts
-        ORDER BY id DESC"""
-    )
+        stats = cur.fetchone()
 
-    alerts = cur.fetchall()
+        total_events = stats[0] or 0
+        successful_logins = stats[1] or 0
+        failed_logins = stats[2] or 0
 
-    cur.execute(
-        """SELECT ip_address, blocked_until, reason FROM  blocked_ips
-        ORDER BY blocked_until DESC"""
-    )
+        cur.execute(
+            "SELECT COUNT(*) FROM blocked_ips WHERE blocked_until > ?",
+            (current_time,),
+        )
+        active_ip_blocks = cur.fetchone()[0]
 
-    blocked_ips = cur.fetchall()
+        cur.execute(
+            "SELECT COUNT(*) FROM alerts WHERE status = 'NEW'"
+        )
+        new_alerts = cur.fetchone()[0]
 
-    cur.execute(
-        """SELECT
-                COUNT(*) AS total,
-                SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END)
-            FROM auth_logs"""
-    )
+        cur.execute(
+            """
+            SELECT alert_type, COUNT(*)
+            FROM alerts
+            GROUP BY alert_type
+            """
+        )
 
-    stats = cur.fetchone()
-    con.close()
+        alert_stats = dict(cur.fetchall())
 
-    total_events = stats[0] or 0
-    successful_logins = stats[1] or 0
-    failed_logins = stats[2] or 0
+        brute_force_alerts = alert_stats.get('BRUTE_FORCE', 0)
+        password_spraying_alerts = alert_stats.get('PASSWORD_SPRAYING', 0)
 
-    current_time = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            """
+            SELECT username, ip_address, attempt_time, status
+            FROM auth_logs
+            ORDER BY id DESC
+            LIMIT 50
+            """
+        )
+        logs = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT id, ip_address, alert_type, description, alert_time, status
+            FROM alerts
+            ORDER BY id DESC
+            LIMIT 50
+            """
+        )
+        alerts = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT ip_address, blocked_until, reason
+            FROM blocked_ips
+            ORDER BY blocked_until DESC
+            LIMIT 50
+            """
+        )
+        blocked_ips = cur.fetchall()
+
+    finally:
+        con.close()
 
     return render_template(
         'dashboard.html',
@@ -382,9 +415,13 @@ def dashboard():
         total_events=total_events,
         successful_logins=successful_logins,
         failed_logins=failed_logins,
+        active_ip_blocks=active_ip_blocks,
+        new_alerts=new_alerts,
         alerts=alerts,
         blocked_ips=blocked_ips,
-        current_time=current_time
+        current_time=current_time,
+        brute_force_alerts=brute_force_alerts,
+        password_spraying_alerts=password_spraying_alerts
     )
 
 @app.route('/alerts/<int:alert_id>/review', methods=['POST'])

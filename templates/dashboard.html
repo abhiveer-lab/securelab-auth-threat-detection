@@ -1,13 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SecureLab | Security Dashboard</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
 </head>
 
 <body>
@@ -15,34 +12,53 @@
 
         <!-- Header -->
         <header class="dashboard-header">
-            <div>
-                <h1>SecureLab</h1>
-                <p>Security Monitoring Dashboard</p>
+            <div class="brand">
+                <svg viewBox="0 0 64 72" fill="none" stroke="#6fd0ff" stroke-width="3" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M32 4 L58 14 V36 C58 52 46 63 32 68 C18 63 6 52 6 36 V14 Z"/>
+                    <rect x="22" y="32" width="20" height="16" rx="3" fill="#fff" stroke="none"/>
+                    <path d="M25 32 V27 a7 7 0 0 1 14 0 V32" stroke="#fff" stroke-width="3.5"/>
+                </svg>
+                <div>
+                    <h1>Secure<span>Lab</span></h1>
+                    <p>Security Monitoring Dashboard</p>
+                </div>
             </div>
 
             <form action="{{ url_for('logout') }}" method="POST">
-                <input type="hidden"
-                       name="csrf_token"
-                       value="{{ csrf_token() }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="logout-btn">Logout</button>
             </form>
         </header>
 
         <!-- Summary Cards -->
-        <section class="summary-cards">
+        <section class="summary-cards" aria-label="Summary">
             <div class="summary-card">
                 <h3>Total Events</h3>
                 <p>{{ total_events }}</p>
             </div>
-
             <div class="summary-card">
                 <h3>Successful Logins</h3>
                 <p>{{ successful_logins }}</p>
             </div>
-
             <div class="summary-card">
                 <h3>Failed Logins</h3>
                 <p>{{ failed_logins }}</p>
+            </div>
+            <div class="summary-card">
+                <h3>Active IP Blocks</h3>
+                <p>{{ active_ip_blocks }}</p>
+            </div>
+            <div class="summary-card">
+                <h3>New Alerts</h3>
+                <p>{{ new_alerts }}</p>
+            </div>
+            <div class="summary-card">
+                <h3>Brute-Force Alerts</h3>
+                <p>{{ brute_force_alerts }}</p>
+            </div>
+            <div class="summary-card">
+                <h3>Password-Spraying Alerts</h3>
+                <p>{{ password_spraying_alerts }}</p>
             </div>
         </section>
 
@@ -50,19 +66,20 @@
         <section class="panel alerts-panel">
             <div class="panel-header">
                 <h2>Security Alerts</h2>
+                <span class="count">{{ alerts|length }} shown</span>
             </div>
 
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>IP Address</th>
-                            <th>Alert Type</th>
-                            <th>Description</th>
-                            <th>Time</th>
-                            <th>Status</th>
-                            <th>Action</th>
+                            <th scope="col">ID</th>
+                            <th scope="col">IP Address</th>
+                            <th scope="col">Alert Type</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Time</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Action</th>
                         </tr>
                     </thead>
 
@@ -71,7 +88,7 @@
                         <tr>
                             <td>{{ alert[0] }}</td>
                             <td>{{ alert[1] }}</td>
-                            <td>{{ alert[2] }}</td>
+                            <td><span class="tag">{{ alert[2] }}</span></td>
                             <td class="alert-description">{{ alert[3] }}</td>
                             <td>{{ alert[4] }}</td>
 
@@ -87,25 +104,18 @@
 
                             <td>
                                 {% if alert[5] == 'NEW' %}
-                                    <form method="POST"
-                                          action="{{ url_for('review_alert', alert_id=alert[0]) }}">
-                                        <input type="hidden"
-                                               name="csrf_token"
-                                               value="{{ csrf_token() }}">
-                                        <button type="submit" class="review-btn">
-                                            Mark Reviewed
-                                        </button>
+                                    <form method="POST" action="{{ url_for('review_alert', alert_id=alert[0]) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="review-btn">Mark Reviewed</button>
                                     </form>
                                 {% else %}
-                                    <span>Completed</span>
+                                    <span class="done">Completed</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="empty-state">
-                                No security alerts found.
-                            </td>
+                            <td colspan="7" class="empty-state">No security alerts found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -117,17 +127,18 @@
         <section class="panel ip-blocker-panel">
             <div class="panel-header">
                 <h2>IP Blocker</h2>
+                <span class="count">{{ blocked_ips|length }} shown</span>
             </div>
 
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>IP Address</th>
-                            <th>Reason</th>
-                            <th>Blocked Until (UTC)</th>
-                            <th>Status</th>
-                            <th>Action</th>
+                            <th scope="col">IP Address</th>
+                            <th scope="col">Reason</th>
+                            <th scope="col">Blocked Until (UTC)</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Action</th>
                         </tr>
                     </thead>
 
@@ -149,24 +160,19 @@
                             <td>
                                 {% if blocked_ip[1] > current_time %}
                                     <form method="POST"
-                                          action="{{ url_for('unblock_ip', ip_address=blocked_ip[0]) }}">
-                                        <input type="hidden"
-                                               name="csrf_token"
-                                               value="{{ csrf_token() }}">
-                                        <button type="submit" class="review-btn">
-                                            Unblock
-                                        </button>
+                                          action="{{ url_for('unblock_ip', ip_address=blocked_ip[0]) }}"
+                                          onsubmit="return confirm('Unblock this IP address?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="review-btn">Unblock</button>
                                     </form>
                                 {% else %}
-                                    <span>Expired</span>
+                                    <span class="done">Expired</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="empty-state">
-                                No blocked IP addresses found.
-                            </td>
+                            <td colspan="5" class="empty-state">No blocked IP addresses found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -178,16 +184,17 @@
         <section class="panel logs-panel">
             <div class="panel-header">
                 <h2>Authentication Logs</h2>
+                <span class="count">{{ logs|length }} shown</span>
             </div>
 
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Username</th>
-                            <th>IP Address</th>
-                            <th>Attempt Time</th>
-                            <th>Status</th>
+                            <th scope="col">Username</th>
+                            <th scope="col">IP Address</th>
+                            <th scope="col">Attempt Time</th>
+                            <th scope="col">Status</th>
                         </tr>
                     </thead>
 
@@ -197,7 +204,6 @@
                             <td>{{ log[0] }}</td>
                             <td>{{ log[1] }}</td>
                             <td>{{ log[2] }}</td>
-
                             <td>
                                 {% if log[3] == 'SUCCESS' %}
                                     <span class="status success">SUCCESS</span>
@@ -208,9 +214,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="empty-state">
-                                No authentication logs found.
-                            </td>
+                            <td colspan="4" class="empty-state">No authentication logs found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
