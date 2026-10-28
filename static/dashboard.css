@@ -490,3 +490,63 @@ tbody tr:last-child td {
         font-size: 23px;
     }
 }
+
+/* ===== Failed Login Activity Chart ===== */
+
+.activity-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    min-height: 220px;
+    padding: 24px;
+    overflow-x: auto;
+}
+
+.activity-bar-item {
+    display: flex;
+    flex: 1 0 44px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 44px;
+    min-height: 170px;
+}
+
+.activity-bar-value {
+    color: var(--cyan);
+    font: 12px var(--mono);
+}
+
+.activity-bar {
+    width: min(100%, 34px);
+    height: var(--bar-height, 0px);
+    min-height: 0px;
+    background: linear-gradient(
+        180deg,
+        var(--cyan),
+        #2875d7
+    );
+    border-radius: 5px 5px 2px 2px;
+    box-shadow: 0 0 12px rgba(111, 208, 255, 0.16);
+    transition: height 0.2s ease;
+}
+
+.activity-bar-label {
+    color: var(--muted);
+    font: 11px var(--mono);
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .activity-chart {
+        gap: 8px;
+        padding: 18px 12px;
+    }
+
+    .activity-bar-item {
+        flex-basis: 38px;
+        min-width: 38px;
+    }
+}
+

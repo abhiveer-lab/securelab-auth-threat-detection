@@ -62,6 +62,39 @@
             </div>
         </section>
 
+        <!-- Failed Login Activity Chart -->
+        <section class="panel activity-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Failed Login Activity</h2>
+                    <p>Failed authentication attempts over the last 24 hours</p>
+                </div>
+                <span class="count">LAST 24 HOURS</span>
+            </div>
+
+            <div class="activity-chart">
+                {% if failed_login_trend %}
+                    {% for item in failed_login_trend %}
+                        <div class="activity-bar-item">
+                            <div class="activity-bar-value">{{ item.count }}</div>
+                            <div
+                                class="activity-bar"
+                                style="--bar-height: {{ (item.count / max_failed_login_count * 160) if item.count > 0 else 0 }}px"
+                                title="{{ item.hour }}: {{ item.count }} failed attempts"
+                            ></div>
+                            <span class="activity-bar-label">
+                                {{ item.hour[11:13] }}:00
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="empty-state">
+                        No failed login attempts recorded in the last 24 hours.
+                    </p>
+                {% endif %}
+            </div>
+        </section>
+
         <!-- Security Alerts -->
         <section class="panel alerts-panel">
             <div class="panel-header">

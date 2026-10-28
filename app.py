@@ -352,6 +352,49 @@ def dashboard():
         successful_logins = stats[1] or 0
         failed_logins = stats[2] or 0
 
+        
+        cutoff_time = (
+            datetime.now(timezone.utc) - timedelta(hours=24)
+        ).isoformat()
+
+        cur.execute(
+            """
+            SELECT substr(attempt_time, 1, 13) AS hour,
+                   COUNT(*) AS failed_count
+            FROM auth_logs
+            WHERE status = 'FAILED'
+              AND attempt_time >= ?
+            GROUP BY substr(attempt_time, 1, 13)
+            ORDER BY substr(attempt_time, 1, 13)
+            """,
+            (cutoff_time,)
+        )
+
+        hourly_counts = {
+            hour: count
+            for hour, count in cur.fetchall()
+        }
+
+        now = datetime.now(timezone.utc).replace(
+            minute=0, second=0, microsecond=0
+        )
+
+        failed_login_trend = []
+
+        for offset in range(23, -1, -1):
+            hour_time = now - timedelta(hours=offset)
+            hour_key = hour_time.strftime("%Y-%m-%dT%H")
+
+            failed_login_trend.append({
+                "hour": hour_key,
+                "count": hourly_counts.get(hour_key, 0)
+            })
+
+        max_failed_login_count = max(
+            (item["count"] for item in failed_login_trend),
+            default=1
+        )
+
         cur.execute(
             "SELECT COUNT(*) FROM blocked_ips WHERE blocked_until > ?",
             (current_time,),
@@ -421,7 +464,9 @@ def dashboard():
         blocked_ips=blocked_ips,
         current_time=current_time,
         brute_force_alerts=brute_force_alerts,
-        password_spraying_alerts=password_spraying_alerts
+        password_spraying_alerts=password_spraying_alerts,
+        failed_login_trend=failed_login_trend,
+        max_failed_login_count=max_failed_login_count,
     )
 
 @app.route('/alerts/<int:alert_id>/review', methods=['POST'])
