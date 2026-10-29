@@ -1,20 +1,57 @@
 import sqlite3
-from werkzeug.security import generate_password_hash
 from getpass import getpass
+from werkzeug.security import generate_password_hash
 
-username = "testuser"
-password = getpass("Enter password for new user: ")
+DB_PATH = "securelab.db"
+VALID_ROLES = {"user", "admin"}
 
-password_hash = generate_password_hash(password)
-con = sqlite3.connect('securelab.db')
-cur = con.cursor()
 
-cur.execute(
-    "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-     (username, password_hash)
-)
+def create_user():
+    username = input("Enter username: ").strip()
 
-con.commit()
-con.close()
+    if not username:
+        print("Username cannot be empty.")
+        return
 
-print("Test user create successfully")
+    role = input("Enter role (user/admin): ").strip().lower()
+
+    if role not in VALID_ROLES:
+        print("Invalid role. Choose 'user' or 'admin'.")
+        return
+
+    password = getpass("Enter password: ")
+    confirm_password = getpass("Confirm password: ")
+
+    if len(password) < 12:
+        print("Password must be at least 12 characters.")
+        return
+
+    if password != confirm_password:
+        print("Passwords do not match.")
+        return
+
+    password_hash = generate_password_hash(password)
+
+    con = sqlite3.connect(DB_PATH)
+
+    try:
+        con.execute(
+            """
+            INSERT INTO users (username, password_hash, role)
+            VALUES (?, ?, ?)
+            """,
+            (username, password_hash, role),
+        )
+        con.commit()
+        print(f"User '{username}' created successfully with role '{role}'.")
+
+    except sqlite3.IntegrityError:
+        con.rollback()
+        print("That username already exists.")
+
+    finally:
+        con.close()
+
+
+if __name__ == "__main__":
+    create_user()
