@@ -7,11 +7,23 @@ from flask import session,redirect,url_for
 from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
+from flask_wtf.csrf import CSRFProtect
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key =os.environ["FLASK_SECRET_KEY"]
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+app.config["SESSION_COOKIE_SECURE"] = False
+
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
+
+csrf = CSRFProtect(app)
+
+DUMMY_PASSWORD_HASH = "scrypt:32768:8:1$hYL8oJJUi7cplDXn$9b6b1b0a3723ef69969bc1bdb769ea5d0ddb73f6346714b7fe0f6a4a4ef90a758c4d6023edd897b120ea45425210036db74b9cc017b3e0e1844fb22445037e78"
 
 def is_ip_blocked(ip_address):
     con = sqlite3.connect('securelab.db')
@@ -47,9 +59,9 @@ def is_ip_blocked(ip_address):
     return False
 
 def block_ip(ip_address):
-    blocked_until = (
-        datetime.now(timezone.utc) + timedelta(minutes=5)
-    ).isoformat()
+    now = datetime.now(timezone.utc)
+    block_started_at = now.isoformat()
+    blocked_until = (now + timedelta(minutes=5)).isoformat()
 
     con = sqlite3.connect('securelab.db')
     cur = con.cursor()
@@ -62,7 +74,16 @@ def block_ip(ip_address):
             ip_address,
             blocked_until,
             'Five failed login attempts within 10 minutes'
-        )
+        ),
+    )
+
+    cur.execute(
+        """
+        INSERT OR REPLACE INTO ip_block_history
+            (ip_address, block_started_at)
+        VALUES (?, ?)
+        ON CONFLICT(ip_address) DO UPDATE SET block_started_at = excluded.block_started_at """,
+        (ip_address, block_started_at),
     )
 
     con.commit()
@@ -72,68 +93,171 @@ def log_attempt(username, ip_address, status):
     attempt_time = datetime.now(timezone.utc)
 
     con = sqlite3.connect('securelab.db')
-    cur = con.cursor()
+    try:
+        cur = con.cursor()
 
-    cur.execute(
-        """INSERT INTO auth_logs
-           (username, ip_address, attempt_time, status)
-           VALUES(?, ?, ?, ?)""",
-        (username, ip_address, attempt_time.isoformat(), status)
-    )
+        cur.execute(
+            """INSERT INTO auth_logs
+            (username, ip_address, attempt_time, status)
+            VALUES(?, ?, ?, ?)""",
+            (username, ip_address, attempt_time.isoformat(), status)
+        )
 
-    con.commit()
-    con.close()
+        con.commit()
+
+    except Exception:
+        con.rollback()
+        raise
+
+    finally:
+        con.close()
 
 def detect_brute_force(ip_address):
     con = sqlite3.connect('securelab.db')
-    cur = con.cursor()
 
-    cutoff_time = (
+    try:
+        cur = con.cursor()
+
+        now = datetime.now(timezone.utc)
+        cutoff_time = (now - timedelta(minutes=10)).isoformat()
+
+        cur.execute(
+            """
+            SELECT block_started_at FROM ip_block_history WHERE ip_Address = ?
+            """,
+            (ip_address, ),
+        )
+
+        block_row = cur.fetchone()
+
+        if block_row is not None:
+            cur.execute(
+                """SELECT COUNT(*)
+                FROM auth_logs
+                WHERE ip_address = ?
+                    AND status = 'FAILED'
+                    AND attempt_time >= ?
+                    AND attempt_time > ?
+                    """,
+                    (ip_address, cutoff_time, block_row[0]),
+            )
+
+        else:
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM auth_logs
+                WHERE ip_address = ?
+                AND status = 'FAILED'
+                AND attempt_time >= ?
+                """,
+                (ip_address, cutoff_time),
+            )
+
+        failed_attempts = cur.fetchone()[0]
+
+        if failed_attempts >= 5:
+            cur.execute(
+                """SELECT id FROM alerts
+                    WHERE ip_address = ?
+                    AND alert_type = 'BRUTE_FORCE'
+                    AND alert_time >= ?
+                    """,
+                    (ip_address, cutoff_time)
+            )
+
+            if cur.fetchone() is None:
+                cur.execute(
+                    """INSERT INTO alerts
+                    (ip_address, alert_type, description, alert_time, status)
+                    VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        ip_address,
+                        'BRUTE_FORCE',
+                        'Five or more failed login attempts within 10 minutes',
+                        datetime.now(timezone.utc).isoformat(),
+                        'NEW'
+                    )
+                )
+
+        con.commit()
+        return failed_attempts
+
+    except Exception:
+        con.rollback()
+        raise
+
+    finally:
+        con.close()
+
+def detect_password_spraying(ip_address):
+    con = sqlite3.connect('securelab.db')
+
+    try:
+        cur = con.cursor()
+
+        cutoff_time = (
             datetime.now(timezone.utc) - timedelta(minutes=10)
         ).isoformat()
-    cur.execute(
-        """SELECT COUNT(*)
-           FROM auth_logs
-           WHERE ip_address = ?
-             AND status = 'FAILED'
-             AND attempt_time >= ?
-             """,
-             (ip_address, cutoff_time)
-    )
 
-    failed_attempts = cur.fetchone()[0]
-
-    if failed_attempts >= 5:
         cur.execute(
-            """SELECT id FROM alerts
+            """
+            SELECT COUNT(*), COUNT(DISTINCT username)
+            FROM auth_logs
+            WHERE ip_address = ?
+            AND status = 'FAILED'
+            AND attempt_time >= ?
+            """,
+            (ip_address, cutoff_time)
+        )
+
+        row = cur.fetchone()
+
+        if row is None:
+            failed_attempts = 0
+            distinct_usernames = 0
+        else:
+            failed_attempts, distinct_usernames = row
+
+        if failed_attempts >= 5 and distinct_usernames >= 5:
+            cur.execute(
+                """
+                SELECT id FROM alerts
                 WHERE ip_address = ?
-                AND alert_type = 'BRUTE_FORCE'
+                AND alert_type = 'PASSWORD_SPRAYING'
                 AND alert_time >= ?
                 """,
                 (ip_address, cutoff_time)
-        )
-
-        if cur.fetchone() is None:
-            cur.execute(
-                """INSERT INTO alerts
-                (ip_address, alert_type, description, alert_time, status)
-                VALUES (?, ?, ?, ?, ?)""",
-                (
-                    ip_address,
-                    'BRUTE_FORCE',
-                    'Five or more failed login attempts within 10 minutes',
-                    datetime.now(timezone.utc).isoformat(),
-                    'NEW'
-                )
             )
 
-    con.commit()
-    con.close()
+            if cur.fetchone() is None:
+                cur.execute(
+                    """
+                    INSERT INTO alerts
+                        (ip_address, alert_type, description, alert_time, status)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        ip_address,
+                        'PASSWORD_SPRAYING',
+                        'Failed login attempts against five or more usernames within 10 minutes',
+                        datetime.now(timezone.utc).isoformat(),
+                        'NEW'
+                    )
+                )
 
-    return failed_attempts
+        con.commit()
+        return failed_attempts, distinct_usernames
 
-@app.route('/login', methods=['POST'])
-@app.route('/')
+    except Exception:
+        con.rollback()
+        raise
+
+    finally:
+        con.close()
+
+@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('index.html')
@@ -143,7 +267,7 @@ def login():
     error = None
 
     if not username or not password:
-        error = 'Please enter both username and password'
+        error = 'Invalid username or password'
         return render_template('index.html', error=error)
 
     ip_address = request.remote_addr
@@ -163,9 +287,14 @@ def login():
     user = cur.fetchone()
     con.close()
 
-    if user is not None and check_password_hash(user[0], password):
+    password_hash = user[0] if user is not None else DUMMY_PASSWORD_HASH
+    password_valid = check_password_hash(password_hash, password)
+
+    if user is not None and password_valid:
         log_attempt(username, ip_address, 'SUCCESS')
 
+        session.clear()
+        session.permanent = True
         session['username'] = username
         session['role'] = user[1]
 
@@ -177,7 +306,7 @@ def login():
     log_attempt(username, ip_address, 'FAILED')
 
     failed_attempts = detect_brute_force(ip_address)
-
+    detect_password_spraying(ip_address)
     if failed_attempts >= 5:
         block_ip(ip_address)
         error = 'Too many failed login attempts. Try again in 5 minutes.'
@@ -193,59 +322,135 @@ def dashboard():
         return 'Access denied', 403
 
     username = session['username']
-
     con = sqlite3.connect('securelab.db')
-    cur = con.cursor()
 
-    cur.execute(
-        "SELECT role FROM users WHERE username = ?",
-        (username, )
-    )
+    try:
+        cur = con.cursor()
 
-    user = cur.fetchone()
-    con.close()
+        cur.execute(
+            "SELECT role FROM users WHERE username = ?",
+            (username, )
+        )
+        user = cur.fetchone()
 
-    if user is None or user[0] != 'admin':
-        return 'Access denied', 403
+        if user is None or user[0] != 'admin':
+            return 'Access denied', 403
 
-    con = sqlite3.connect('securelab.db')
-    cur = con.cursor()
+        current_time = datetime.now(timezone.utc).isoformat()
 
-    cur.execute(
-        """SELECT username, ip_address, attempt_time,status FROM auth_logs ORDER BY id DESC"""
-    )
-    logs = cur.fetchall()
+        cur.execute(
+            """SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END)
+                FROM auth_logs"""
+        )
 
-    cur.execute(
-        """SELECT id, ip_address, alert_type, description, alert_time, status FROM alerts
-        ORDER BY id DESC"""
-    )
+        stats = cur.fetchone()
 
-    alerts = cur.fetchall()
+        total_events = stats[0] or 0
+        successful_logins = stats[1] or 0
+        failed_logins = stats[2] or 0
 
-    cur.execute(
-        """SELECT ip_address, blocked_until, reason FROM  blocked_ips
-        ORDER BY blocked_until DESC"""
-    )
+        
+        cutoff_time = (
+            datetime.now(timezone.utc) - timedelta(hours=24)
+        ).isoformat()
 
-    blocked_ips = cur.fetchall()
+        cur.execute(
+            """
+            SELECT substr(attempt_time, 1, 13) AS hour,
+                   COUNT(*) AS failed_count
+            FROM auth_logs
+            WHERE status = 'FAILED'
+              AND attempt_time >= ?
+            GROUP BY substr(attempt_time, 1, 13)
+            ORDER BY substr(attempt_time, 1, 13)
+            """,
+            (cutoff_time,)
+        )
 
-    cur.execute(
-        """SELECT
-                COUNT(*) AS total,
-                SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END)
-            FROM auth_logs"""
-    )
+        hourly_counts = {
+            hour: count
+            for hour, count in cur.fetchall()
+        }
 
-    stats = cur.fetchone()
-    con.close()
+        now = datetime.now(timezone.utc).replace(
+            minute=0, second=0, microsecond=0
+        )
 
-    total_events = stats[0] or 0
-    successful_logins = stats[1] or 0
-    failed_logins = stats[2] or 0
+        failed_login_trend = []
 
-    current_time = datetime.now(timezone.utc).isoformat()
+        for offset in range(23, -1, -1):
+            hour_time = now - timedelta(hours=offset)
+            hour_key = hour_time.strftime("%Y-%m-%dT%H")
+
+            failed_login_trend.append({
+                "hour": hour_key,
+                "count": hourly_counts.get(hour_key, 0)
+            })
+
+        max_failed_login_count = max(
+            (item["count"] for item in failed_login_trend),
+            default=1
+        )
+
+        cur.execute(
+            "SELECT COUNT(*) FROM blocked_ips WHERE blocked_until > ?",
+            (current_time,),
+        )
+        active_ip_blocks = cur.fetchone()[0]
+
+        cur.execute(
+            "SELECT COUNT(*) FROM alerts WHERE status = 'NEW'"
+        )
+        new_alerts = cur.fetchone()[0]
+
+        cur.execute(
+            """
+            SELECT alert_type, COUNT(*)
+            FROM alerts
+            GROUP BY alert_type
+            """
+        )
+
+        alert_stats = dict(cur.fetchall())
+
+        brute_force_alerts = alert_stats.get('BRUTE_FORCE', 0)
+        password_spraying_alerts = alert_stats.get('PASSWORD_SPRAYING', 0)
+
+        cur.execute(
+            """
+            SELECT username, ip_address, attempt_time, status
+            FROM auth_logs
+            ORDER BY id DESC
+            LIMIT 50
+            """
+        )
+        logs = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT id, ip_address, alert_type, description, alert_time, status
+            FROM alerts
+            ORDER BY id DESC
+            LIMIT 50
+            """
+        )
+        alerts = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT ip_address, blocked_until, reason
+            FROM blocked_ips
+            ORDER BY blocked_until DESC
+            LIMIT 50
+            """
+        )
+        blocked_ips = cur.fetchall()
+
+    finally:
+        con.close()
 
     return render_template(
         'dashboard.html',
@@ -253,9 +458,95 @@ def dashboard():
         total_events=total_events,
         successful_logins=successful_logins,
         failed_logins=failed_logins,
+        active_ip_blocks=active_ip_blocks,
+        new_alerts=new_alerts,
         alerts=alerts,
         blocked_ips=blocked_ips,
-        current_time=current_time
+        current_time=current_time,
+        brute_force_alerts=brute_force_alerts,
+        password_spraying_alerts=password_spraying_alerts,
+        failed_login_trend=failed_login_trend,
+        max_failed_login_count=max_failed_login_count,
+    )
+
+@app.route('/investigate/<ip_address>')
+def investigate_ip(ip_address):
+    if 'username' not in session:
+        return 'Access denied', 403
+
+    con = sqlite3.connect('securelab.db')
+    con.row_factory = sqlite3.Row
+
+    try:
+        cur = con.cursor()
+
+        cur.execute(
+            "SELECT role FROM users WHERE username = ?",
+            (session['username'],)
+        )
+
+        user = cur.fetchone()
+
+        if user is None or user['role'] != 'admin':
+            return 'Access denied', 403
+
+        cur.execute(
+            """
+            SELECT username, ip_address, attempt_time, status FROM auth_logs WHERE ip_address =?
+            ORDER BY attempt_time DESC
+            LIMIT 100
+            """,
+            (ip_address,)
+        )
+        logs = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT alert_type, description, alert_time, status FROM alerts WHERE ip_address = ?
+            ORDER BY alert_time DESC 
+            LIMIT 50
+            """,
+            (ip_address,)
+        )
+        alerts = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total_attempts,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END)
+                    AS failed_logins,
+                SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END)
+                    AS successful_logins
+            FROM auth_logs
+            WHERE ip_address = ?
+            """,
+            (ip_address,)
+        )
+        summary = cur.fetchone()
+
+        # Current block status
+        cur.execute(
+            """
+            SELECT blocked_until, reason
+            FROM blocked_ips
+            WHERE ip_address = ?
+              AND blocked_until > ?
+            """,
+            (ip_address, datetime.now(timezone.utc).isoformat())
+        )
+        block = cur.fetchone()
+
+    finally:
+        con.close()
+
+    return render_template(
+        'investigate_ip.html',
+        ip_address=ip_address,
+        logs=logs,
+        alerts=alerts,
+        summary=summary,
+        block=block
     )
 
 @app.route('/alerts/<int:alert_id>/review', methods=['POST'])
@@ -292,7 +583,7 @@ def review_alert(alert_id):
 
     return redirect(url_for('dashboard'))
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
     session.clear()
     return redirect(url_for('login'))
@@ -327,4 +618,4 @@ def unblock_ip(ip_address):
     return redirect(url_for('dashboard'))
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)

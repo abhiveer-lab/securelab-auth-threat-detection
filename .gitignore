@@ -20,3 +20,8 @@ venv/
 # Editor files
 .vscode/
 .DS_Store
+
+securelab.db.backup
+
+evidence/before-cookie.png
+evidence/hydra-attack.png

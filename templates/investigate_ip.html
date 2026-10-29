@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Investigation | SecureLab</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='investigate.css') }}">
+</head>
+
+<body>
+    <main class="investigation-container">
+
+        <!-- Header -->
+        <header class="investigation-header">
+            <div>
+                <h1>IP Investigation</h1>
+                <p>Investigating IP: <strong>{{ ip_address }}</strong></p>
+            </div>
+
+            <a class="back-dashboard"
+               href="{{ url_for('dashboard') }}">
+                &larr; Back to Dashboard
+            </a>
+        </header>
+
+        <!-- Activity Summary -->
+        <section class="investigation-summary"
+                 aria-label="IP activity summary">
+
+            <article class="investigation-card">
+                <h3>Total Attempts</h3>
+                <p>{{ summary['total_attempts'] or 0 }}</p>
+            </article>
+
+            <article class="investigation-card failed">
+                <h3>Failed Logins</h3>
+                <p>{{ summary['failed_logins'] or 0 }}</p>
+            </article>
+
+            <article class="investigation-card success">
+                <h3>Successful Logins</h3>
+                <p>{{ summary['successful_logins'] or 0 }}</p>
+            </article>
+
+        </section>
+
+        <!-- Current Block Status -->
+        <section class="investigation-panel">
+            <div class="investigation-panel-header">
+                <h2>Current Block Status</h2>
+            </div>
+
+            <div class="investigation-panel-body">
+                {% if block %}
+                    <p>
+                        <strong>Status:</strong>
+                        <span class="investigation-status failed">
+                            ACTIVE BLOCK
+                        </span>
+                    </p>
+
+                    <p>
+                        <strong>Blocked until (UTC):</strong>
+                        {{ block['blocked_until'] }}
+                    </p>
+
+                    <p>
+                        <strong>Reason:</strong>
+                        {{ block['reason'] }}
+                    </p>
+                {% else %}
+                    <p>
+                        <span class="investigation-status success">
+                            NOT CURRENTLY BLOCKED
+                        </span>
+                    </p>
+                    <p>This IP has no active block.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Authentication History -->
+        <section class="investigation-panel">
+            <div class="investigation-panel-header">
+                <h2>Authentication History</h2>
+                <p>Latest {{ logs|length }} records (maximum 100)</p>
+            </div>
+
+            {% if logs %}
+                <div class="investigation-table-wrapper">
+                    <table class="investigation-table">
+                        <thead>
+                            <tr>
+                                <th>Time (UTC)</th>
+                                <th>Username</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for log in logs %}
+                                <tr>
+                                    <td>{{ log['attempt_time'] }}</td>
+                                    <td>{{ log['username'] }}</td>
+                                    <td>
+                                        {% if log['status'] == 'FAILED' %}
+                                            <span class="investigation-status failed">
+                                                FAILED
+                                            </span>
+                                        {% else %}
+                                            <span class="investigation-status success">
+                                                SUCCESS
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="investigation-empty">
+                    No authentication records found for this IP.
+                </p>
+            {% endif %}
+        </section>
+
+        <!-- Related Security Alerts -->
+        <section class="investigation-panel">
+            <div class="investigation-panel-header">
+                <h2>Related Security Alerts</h2>
+                <p>{{ alerts|length }} alerts shown (maximum 50)</p>
+            </div>
+
+            {% if alerts %}
+                <div class="investigation-table-wrapper">
+                    <table class="investigation-table">
+                        <thead>
+                            <tr>
+                                <th>Time (UTC)</th>
+                                <th>Alert Type</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for alert in alerts %}
+                                <tr>
+                                    <td>{{ alert['alert_time'] }}</td>
+                                    <td>
+                                        <span class="investigation-status">
+                                            {{ alert['alert_type'] }}
+                                        </span>
+                                    </td>
+                                    <td>{{ alert['description'] }}</td>
+                                    <td>
+                                        {% if alert['status'] == 'NEW' %}
+                                            <span class="investigation-status failed">
+                                                NEW
+                                            </span>
+                                        {% elif alert['status'] == 'REVIEWED' %}
+                                            <span class="investigation-status success">
+                                                REVIEWED
+                                            </span>
+                                        {% else %}
+                                            <span class="investigation-status">
+                                                {{ alert['status'] }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="investigation-empty">
+                    No security alerts found for this IP.
+                </p>
+            {% endif %}
+        </section>
+
+        <!-- Footer -->
+        <footer class="investigation-empty">
+            SecureLab | Authentication Monitoring &amp; Threat Detection
+        </footer>
+
+    </main>
+</body>
+</html>
