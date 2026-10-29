@@ -120,7 +120,11 @@
                         {% for alert in alerts %}
                         <tr>
                             <td>{{ alert[0] }}</td>
-                            <td>{{ alert[1] }}</td>
+                            <td>
+                                <a href="{{ url_for('investigate_ip', ip_address=alert[1]) }}">
+                                    {{ alert[1] }}
+                                </a>
+                            </td>
                             <td><span class="tag">{{ alert[2] }}</span></td>
                             <td class="alert-description">{{ alert[3] }}</td>
                             <td>{{ alert[4] }}</td>
@@ -178,7 +182,11 @@
                     <tbody>
                         {% for blocked_ip in blocked_ips %}
                         <tr>
-                            <td>{{ blocked_ip[0] }}</td>
+                            <td>
+                                <a href="{{ url_for('investigate_ip', ip_address=blocked_ip[0]) }}">
+                                    {{ blocked_ip[0] }}
+                                </a>
+                            </td>
                             <td>{{ blocked_ip[2] }}</td>
                             <td>{{ blocked_ip[1] }}</td>
 
@@ -235,7 +243,11 @@
                         {% for log in logs %}
                         <tr>
                             <td>{{ log[0] }}</td>
-                            <td>{{ log[1] }}</td>
+                            <td>
+                                <a href="{{ url_for('investigate_ip', ip_address=log[1]) }}">
+                                    {{ log[1] }}
+                                </a>
+                            </td>
                             <td>{{ log[2] }}</td>
                             <td>
                                 {% if log[3] == 'SUCCESS' %}

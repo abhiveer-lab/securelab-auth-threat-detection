@@ -469,6 +469,86 @@ def dashboard():
         max_failed_login_count=max_failed_login_count,
     )
 
+@app.route('/investigate/<ip_address>')
+def investigate_ip(ip_address):
+    if 'username' not in session:
+        return 'Access denied', 403
+
+    con = sqlite3.connect('securelab.db')
+    con.row_factory = sqlite3.Row
+
+    try:
+        cur = con.cursor()
+
+        cur.execute(
+            "SELECT role FROM users WHERE username = ?",
+            (session['username'],)
+        )
+
+        user = cur.fetchone()
+
+        if user is None or user['role'] != 'admin':
+            return 'Access denied', 403
+
+        cur.execute(
+            """
+            SELECT username, ip_address, attempt_time, status FROM auth_logs WHERE ip_address =?
+            ORDER BY attempt_time DESC
+            LIMIT 100
+            """,
+            (ip_address,)
+        )
+        logs = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT alert_type, description, alert_time, status FROM alerts WHERE ip_address = ?
+            ORDER BY alert_time DESC 
+            LIMIT 50
+            """,
+            (ip_address,)
+        )
+        alerts = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total_attempts,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END)
+                    AS failed_logins,
+                SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END)
+                    AS successful_logins
+            FROM auth_logs
+            WHERE ip_address = ?
+            """,
+            (ip_address,)
+        )
+        summary = cur.fetchone()
+
+        # Current block status
+        cur.execute(
+            """
+            SELECT blocked_until, reason
+            FROM blocked_ips
+            WHERE ip_address = ?
+              AND blocked_until > ?
+            """,
+            (ip_address, datetime.now(timezone.utc).isoformat())
+        )
+        block = cur.fetchone()
+
+    finally:
+        con.close()
+
+    return render_template(
+        'investigate_ip.html',
+        ip_address=ip_address,
+        logs=logs,
+        alerts=alerts,
+        summary=summary,
+        block=block
+    )
+
 @app.route('/alerts/<int:alert_id>/review', methods=['POST'])
 def review_alert(alert_id):
     #check whether someone is logged in

@@ -1,0 +1,240 @@
+/* ===== Global SecureLab Theme ===== */
+:root {
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    background: #06152e;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    padding: 1px 0;
+    background: linear-gradient(
+        135deg,
+        #06152e 0%,
+        #0a2c61 50%,
+        #06152e 100%
+    );
+    color: #e3f2ff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.investigation-container {
+    width: min(1200px, 94%);
+    margin: 32px auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.investigation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 28px;
+    background: rgba(12, 47, 105, 0.88);
+    border: 1px solid rgba(111, 208, 255, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.investigation-header h1 {
+    margin: 0 0 10px;
+    color: #ffffff;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+}
+
+.investigation-header p {
+    margin: 0;
+    color: #c5e8ff;
+}
+
+.investigation-header strong {
+    color: #6fd0ff;
+    overflow-wrap: anywhere;
+}
+
+.back-dashboard {
+    display: inline-block;
+    padding: 10px 16px;
+    color: #071a36;
+    background: #6fd0ff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.back-dashboard:hover {
+    background: #a2e2ff;
+    transform: translateY(-1px);
+}
+
+.investigation-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.investigation-card {
+    padding: 24px;
+    background: linear-gradient(145deg, #104b99, #092d68);
+    border: 1px solid rgba(111, 208, 255, 0.28);
+    border-left: 4px solid #6fd0ff;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.investigation-card.failed {
+    border-left-color: #ff8b9d;
+}
+
+.investigation-card.success {
+    border-left-color: #62e6b5;
+}
+
+.investigation-card h3 {
+    margin: 0 0 14px;
+    color: #c5e8ff;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.investigation-card p {
+    margin: 0;
+    color: #ffffff;
+    font-size: 2rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.investigation-panel {
+    overflow: hidden;
+    background: rgba(10, 42, 96, 0.88);
+    border: 1px solid rgba(111, 208, 255, 0.25);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.investigation-panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(111, 208, 255, 0.2);
+}
+
+.investigation-panel-header h2 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.15rem;
+}
+
+.investigation-panel-body {
+    padding: 22px 24px;
+    color: #e3f2ff;
+}
+
+.investigation-panel-body p {
+    margin: 8px 0;
+    overflow-wrap: anywhere;
+}
+
+.investigation-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.investigation-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.investigation-table th {
+    padding: 15px 18px;
+    color: #ffffff;
+    background: #1261b6;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.investigation-table td {
+    padding: 15px 18px;
+    color: #e3f2ff;
+    border-bottom: 1px solid rgba(111, 208, 255, 0.12);
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+}
+
+.investigation-table tbody tr:hover {
+    background: rgba(111, 208, 255, 0.07);
+}
+
+.investigation-table a {
+    color: #6fd0ff;
+}
+
+.investigation-status {
+    display: inline-block;
+    padding: 5px 9px;
+    border: 1px solid rgba(111, 208, 255, 0.35);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.investigation-status.failed {
+    color: #ffb0bd;
+    border-color: rgba(255, 139, 157, 0.45);
+}
+
+.investigation-status.success {
+    color: #8cf0c8;
+    border-color: rgba(98, 230, 181, 0.4);
+}
+
+.investigation-empty {
+    padding: 24px;
+    color: #b9d4f0;
+    text-align: center;
+}
+
+@media (max-width: 760px) {
+    .investigation-container {
+        width: 96%;
+        margin: 18px auto;
+        gap: 16px;
+    }
+
+    .investigation-header {
+        padding: 20px;
+    }
+
+    .investigation-summary {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .investigation-card {
+        padding: 18px;
+    }
+
+    .investigation-panel-header,
+    .investigation-panel-body {
+        padding: 16px;
+    }
+
+    .investigation-table th,
+    .investigation-table td {
+        padding: 12px;
+    }
+}
