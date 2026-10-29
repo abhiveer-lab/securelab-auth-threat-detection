@@ -1,25 +1,32 @@
 # SecureLab — Authentication Attack & Defense Lab
 
-A Flask-based cybersecurity project that demonstrates secure authentication, login monitoring, brute-force detection, and defensive controls using Python and SQLite.
+SecureLab is an educational Flask-based cybersecurity project that demonstrates authentication security, login monitoring, attack detection, and defensive controls using Python and SQLite.
 
 ## Features
 
-- **Password security:** Passwords are hashed using Werkzeug.
+- **Password security:** Stores password hashes using Werkzeug.
 - **Authentication logging:** Records successful and failed login attempts.
-- **Brute-force detection:** Detects repeated failed login attempts from the same IP address.
-- **Temporary IP blocking:** Temporarily blocks an IP after repeated failures.
-- **Security alerts:** Generates alerts for suspected brute-force activity.
-- **Admin dashboard:** Displays authentication logs, alerts, and login statistics.
-- **Access control:** Restricts administrative features to authorized administrators.
-- **Alert review:** Allows administrators to mark alerts as reviewed.
+- **Brute-force detection:** Detects repeated failed login attempts from a single IP address.
+- **Password-spraying detection:** Detects failed authentication attempts across multiple usernames.
+- **Temporary IP blocking:** Blocks suspicious IP addresses for a configured period.
+- **Automatic block expiry:** Allows an IP to become eligible for access again after its block expires.
+- **Security alerts:** Generates alerts for suspected brute-force and password-spraying activity.
+- **Admin dashboard:** Displays authentication logs, alerts, blocked IPs, and login statistics.
+- **Failed-login activity chart:** Visualizes failed login activity over a 24-hour period.
+- **IP investigation:** Shows authentication history, related alerts, activity summaries, and current block status for an IP address.
+- **Role-based access control:** Restricts administrative features to authorized administrators.
+- **Alert review and IP management:** Supports reviewing alerts and managing IP blocks.
+- **Session security:** Uses Flask sessions with a configured session lifetime and cookie settings.
+- **CSRF protection:** Uses Flask-WTF to protect state-changing requests.
 
 ## Technology Stack
 
 - Python
 - Flask
 - SQLite
+- Werkzeug
+- Flask-WTF
 - HTML and CSS
-- Werkzeug password hashing
 
 ## Project Structure
 
@@ -28,16 +35,14 @@ password-attack-lab/
 ├── app.py
 ├── init_db.py
 ├── create_user.py
-├── templates/
-│   ├── index.html
-│   └── dashboard.html
-├── static/
-│   ├── style.css
-│   └── dashboard.css
-├── .env.example
-├── .gitignore
+├── test_db_cleanup.py
+├── test_login_timing.py
 ├── requirements.txt
-└── README.md
+├── README.md
+├── .env.example
+├── templates/
+├── static/
+└── evidence/
 ```
 
 ## Getting Started
@@ -49,7 +54,7 @@ git clone https://github.com/abhiveer-lab/securelab-auth-threat-detection.git
 cd securelab-auth-threat-detection
 ```
 
-### 2. Create and activate a virtual environment
+### 2. Create a virtual environment
 
 ```bash
 python3 -m venv .venv
@@ -58,11 +63,15 @@ source .venv/bin/activate
 
 ### 3. Install dependencies
 
-Install the packages listed in `requirements.txt`.
+```bash
+pip install -r requirements.txt
+```
 
-### 4. Configure the application
+### 4. Configure environment variables
 
-Create a local `.env` file using `.env.example` as a reference. Generate a unique random Flask secret key for your local environment. Never commit your real `.env` file.
+Create a local `.env` file using `.env.example` as a reference.
+
+Generate a unique secret key for your local environment and set it as `FLASK_SECRET_KEY`. Never commit your real `.env` file or secret key.
 
 ### 5. Initialize the database
 
@@ -70,40 +79,56 @@ Create a local `.env` file using `.env.example` as a reference. Generate a uniqu
 python init_db.py
 ```
 
-Ensure the application's required database tables are initialized before running it.
+Ensure the database schema is initialized before creating users or running the application.
 
-### 6. Start the application
+### 6. Create a user
+
+```bash
+python create_user.py
+```
+
+The script prompts for a username's password and stores its hash. Use it only when creating a new account; it currently specifies `testuser`, so don't rerun it if that username already exists.
+
+Ensure an administrator account is configured with the appropriate role before accessing the admin dashboard.
+
+### 7. Run SecureLab
 
 ```bash
 python app.py
 ```
 
-Open http://127.0.0.1:5000 in your browser.
+Open `http://127.0.0.1:5000` in your browser.
+
+For local VM testing, configure networking and the Flask listening address appropriately. Do not expose the development server to untrusted networks.
 
 ## Security Testing
 
-Use only your own local instance or an environment where you have explicit authorization.
+Test only your own lab or systems for which you have explicit authorization.
 
-Suggested tests include:
+Suggested checks include:
 
 - Valid and invalid login attempts
-- Access to the admin dashboard as a regular user
-- Repeated failed login attempts and alert generation
-- Temporary IP block expiry
-- Alert review authorization
-- Logout and session protection
+- Admin-page access restrictions for logged-out and normal users
+- Brute-force alert generation and temporary IP blocking
+- Automatic IP-block expiry
+- Password-spraying detection across multiple test accounts
+- IP attribution, authentication logs, and investigation details
+- CSRF rejection for requests missing a valid token
+- Session timeout and logout behavior
+- Database query parameterization and secret management
+
+Record the test setup, expected behavior, observed results, and screenshots as evidence.
 
 ## Limitations
 
-This is an educational project and is not yet intended for production deployment. Production use would require additional security hardening, testing, and deployment configuration.
+SecureLab is an educational project, not a production-ready security product. Its detection rules are simplified and may produce false positives or false negatives. Production deployment would require further security review, automated testing, HTTPS configuration, secure cookie settings, operational monitoring, and deployment hardening.
 
 ## Future Improvements
 
-- Blocked IP management in the admin dashboard
-- Automated authentication and authorization tests
-- Admin audit logging
-- CSRF protection and secure cookie configuration
-- Security analytics and visualizations
+- Automated regression tests for authentication, authorization, and detection rules
+- Admin audit logging for security-sensitive actions
+- More detailed detection analytics and configurable thresholds
+- Improved deployment configuration and production security testing
 
 ## Author
 
