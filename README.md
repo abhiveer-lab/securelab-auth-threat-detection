@@ -21,6 +21,127 @@ The project provides a controlled environment for exploring authentication attac
 - **Session Security:** Uses Flask sessions with a configured session lifetime and cookie settings.
 - **CSRF Protection:** Uses Flask-WTF to protect state-changing requests.
 
+## Project Screenshots
+
+### Brute-Force Detection
+![Brute-force detection](evidence/brute-force-detection.png)
+
+### Failed Login Attempts
+![Failed login attempts](evidence/failed-login-attempts.png)
+
+### Hydra Attack Demonstration
+![Hydra attack demonstration](evidence/hydra-attack-redacted.png)
+
+### Session Cookie Security
+![Redacted session cookie evidence](evidence/before-cookie-redacted.png)
+
+## How Detection Works
+
+SecureLab monitors failed authentication attempts and identifies suspicious login activity using time-based detection rules.
+
+### 1. Brute-Force Detection
+- Monitors failed login attempts from an IP address.
+- Triggers a brute-force alert when 5 or more failed attempts occur within 10 minutes.
+- Temporarily blocks the IP address for 5 minutes.
+
+### 2. Password-Spraying Detection
+- Monitors failed login attempts across different usernames from the same IP address.
+- Triggers a password-spraying alert when at least 5 failed attempts target at least 5 distinct usernames within 10 minutes.
+
+### Detection Workflow
+
+1. A user submits a login attempt.
+2. The application records the authentication event.
+3. Detection functions analyze recent failed attempts.
+4. Suspicious activity generates a security alert.
+5. The application temporarily blocks the IP when the brute-force threshold is reached.
+6. The admin dashboard displays security activity and alerts.
+
+### Detection Flow
+
+Login Attempt
+     |
+     v
+Authentication Event Logged
+     |
+     v
+Detection Rules Evaluated
+     |
+     +----------------------+
+     |                      |
+     v                      v
+Normal Activity       Suspicious Activity
+                            |
+                            v
+                      Security Alert
+                            |
+                            v
+                   Temporary IP Block
+                            |
+                            v
+                    Admin Dashboard
+
+## Test Results
+
+SecureLab was tested locally using Flask's test client and SQLite test databases.
+
+| Test | Expected Result | Result |
+|---|---|---|
+| Existing user with incorrect password | Login rejected | PASS |
+| Unknown username | Login rejected with generic error | PASS |
+| Missing credentials | Generic validation error | PASS |
+| Brute-force threshold | IP not blocked after 4 failures; blocked after 5 | PASS |
+| Brute-force alert | Alert created | PASS |
+| Duplicate brute-force alert | Duplicate alert prevented | PASS |
+| Blocked IP login | Login rejected | PASS |
+| Expired IP block | Block becomes inactive | PASS |
+| Expired block cleanup | Database entry removed | PASS |
+| Password spraying | Alert generated for 5 usernames and 5 failed attempts | PASS |
+| Repeated username | No password-spraying alert generated | PASS |
+| Database cleanup | Connection closes after commit/insert failures | PASS |
+
+**Test files:**
+- `test_login_timing.py`
+- `test_db_cleanup.py`
+
+These results represent local lab testing and do not establish production security.
+
+## Security Design Choices
+
+| Security Control | Implementation |
+|---|---|
+| Password Storage | Passwords are stored using Werkzeug password hashing rather than plaintext. |
+| CSRF Protection | Flask-WTF protects form submissions against cross-site request forgery. |
+| SQL Injection Prevention | Parameterized SQL queries are used for database operations. |
+| Authentication Errors | Generic login errors avoid revealing whether a username exists. |
+| Session Security | Flask session lifetime and cookie settings are configured. |
+| Access Control | Role-based access control separates admin and regular-user access. |
+| Attack Monitoring | Failed authentication attempts are logged and analyzed for suspicious activity. |
+
+## Why I Built This
+
+I built SecureLab to understand how authentication attacks work and how applications can detect and respond to suspicious login activity. The project helped me apply Python, Flask, SQL, and basic security concepts in a practical environment.
+
+## Project Roadmap
+
+### Completed
+- [x] User authentication with password hashing
+- [x] Brute-force detection
+- [x] Password-spraying detection
+- [x] Temporary IP blocking
+- [x] Authentication logging
+- [x] Security alerts
+- [x] Admin dashboard
+- [x] CSRF protection
+- [x] Role-based access control
+- [x] Failed-login activity chart
+
+### Planned
+- [ ] Successful-login anomaly detection
+- [ ] Exportable security reports
+- [ ] More automated security test cases
+- [ ] Improved dashboard analytics
+
 ## Technology Stack
 
 - Python
@@ -35,7 +156,7 @@ The project provides a controlled environment for exploring authentication attac
 ## Project Structure
 
 ```text
-password-attack-lab/
+securelab-auth-threat-detection/
 ├── app.py
 ├── init_db.py
 ├── create_user.py
@@ -172,12 +293,20 @@ The Flask development server is intended for local development and testing, not 
 
 ## Future Improvements
 
-- Automated regression tests for authentication, authorization, and detection rules.
-- Admin audit logging for security-sensitive actions.
-- More detailed detection analytics and configurable thresholds.
-- Improved deployment configuration and production security testing.
-- Expanded documentation of attack simulations, defensive responses, and test evidence.
+- Improve detection accuracy and reduce false positives.
+- Add configurable detection thresholds.
+- Introduce admin audit logging for security-sensitive actions.
+- Improve deployment configuration and security hardening.
+- Expand automated regression testing.
+- Improve documentation of attack simulations and defensive responses.
 
 ## Author
 
-Developed as a hands-on cybersecurity learning project to explore authentication security, defensive monitoring, attack detection, and web application security.
+**Abhiveer**
+
+- GitHub: [abhiveer-lab](https://github.com/abhiveer-lab)
+- LinkedIn: [Abhiveer Vashisht](https://www.linkedin.com/in/abhiveer-vashisht-680206313/)
+
+BCA graduate interested in cybersecurity, currently building practical skills in security analysis, penetration testing, Linux, and Python.
+
+**Currently seeking cybersecurity internship opportunities.**
